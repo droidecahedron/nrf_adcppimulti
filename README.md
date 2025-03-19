@@ -37,3 +37,6 @@ Zephyr-based application for nRF SoC (specifically nRF54L15) using nrfx & utiliz
 [nRF54L15 DPPI](https://docs.nordicsemi.com/bundle/ps_nrf54L15/page/dppi.html)
 [nRF54L15 Pins](https://docs.nordicsemi.com/bundle/ps_nrf54L15/page/chapters/pin.html)
 [nRF54L15 SAADC](https://docs.nordicsemi.com/bundle/ps_nrf54L15/page/saadc.html#ariaid-title49)
+
+## Special thanks
+@hlord2000 for https://github.com/hlord2000/hlord2000.github.io and helping me avoid turning my head 90 degrees to read pin names
