@@ -1,0 +1,3 @@
+sample:
+  description: Zephyr-based application for nRF SoC (specifically nRF54L15) using nrfx & utilizing DPPI (distributed programmable peripheral interconnect) to connect the ADC peripheral to the TIMER peripheral and sample multiple ADC channels with minimal CPU involvement.
+  name: nRF ADC PPI Multi (APM)
