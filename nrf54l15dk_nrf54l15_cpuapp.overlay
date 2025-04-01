@@ -1,0 +1,4 @@
+//note: if you cut SB relating to port2 for the onboard spif, disable this.
+&spi00 {
+	status = "disabled";
+};

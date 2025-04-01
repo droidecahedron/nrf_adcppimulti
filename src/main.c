@@ -17,7 +17,7 @@
 
 LOG_MODULE_REGISTER(nrf_apm, LOG_LEVEL_DBG);
 
-#define SAADC_SAMPLE_INTERVAL_US 50 // can probably turn this up
+#define SAADC_SAMPLE_INTERVAL_US 50 // one cannot trigger sampling more often than N_channels*(T_ACQ+T_CONV).
 #define SAADC_BUFFER_SIZE 8000
 #if NRF_SAADC_HAS_AIN_AS_PIN
 #if defined(CONFIG_SOC_NRF54L15)
@@ -28,8 +28,8 @@ LOG_MODULE_REGISTER(nrf_apm, LOG_LEVEL_DBG);
 #define NRF_SAADC_INPUT_AIN4 NRF_PIN_PORT_TO_PIN_NUMBER(11U, 1)
 #define NRF_SAADC_INPUT_AIN5 NRF_PIN_PORT_TO_PIN_NUMBER(12U, 1)
 #define NRF_SAADC_INPUT_AIN6 NRF_PIN_PORT_TO_PIN_NUMBER(13U, 1)
-#define NRF_SAADC_INPUT_AIN7 NRF_PIN_PORT_TO_PIN_NUMBER(14U, 1) // 
-#define SAADC_INPUT_PIN1 NRF_SAADC_INPUT_AIN4 // NRF_SAADC_INPUT_VDD for vdd direct
+#define NRF_SAADC_INPUT_AIN7 NRF_PIN_PORT_TO_PIN_NUMBER(14U, 1)
+#define SAADC_INPUT_PIN1 NRF_SAADC_INPUT_AIN4                   // NRF_SAADC_INPUT_VDD for vdd direct
 #define SAADC_INPUT_PIN2 NRF_SAADC_INPUT_AIN5
 #else
 BUILD_ASSERT(0, "Unsupported device family");
@@ -73,6 +73,12 @@ static void saadc_event_handler(nrfx_saadc_evt_t const *p_event)
     nrfx_err_t err;
     switch (p_event->type)
     {
+    case NRFX_SAADC_EVT_CALIBRATEDONE:
+        LOG_INF("SAADC event: CALIBRATEDONE");
+        err = nrfx_saadc_mode_trigger();
+        NRFX_ASSERT(status == NRFX_SUCCESS);
+        break;
+
     case NRFX_SAADC_EVT_READY:
         nrfx_timer_enable(&timer_instance);
         break;
@@ -118,7 +124,9 @@ static void saadc_event_handler(nrfx_saadc_evt_t const *p_event)
         average0 = average0 / ((p_event->data.done.size) / 2.0);
         average1 = average1 / ((p_event->data.done.size) / 2.0); // you can extend this to more chs and divide down
         LOG_INF("SAADC buffer at 0x%x filled with %d samples", (uint32_t)p_event->data.done.p_buffer, p_event->data.done.size);
-        LOG_INF("AVG0=%d, AVG1=%d, MIN=%d, MAX=%d", (int16_t)average0, (int16_t)average1, min, max);
+        LOG_INF("SAMPLES: AVG0=0x%08x, AVG1=0x%08x, MIN=0x%x, MAX=0x%x", (int16_t)average0, (int16_t)average1, min, max);
+        // est, NRF_SAADC_RESOLUTION_14BIT, RESULT = [V(P) – V(N) ] * GAIN/REFERENCE * 2(RESOLUTION - m)
+        LOG_INF("V0: %d mV V1: %d mV", (int)(((900 * 4) * average0) / ((1 << 12))), (int)(((900 * 4) * average1) / ((1 << 12))));
         break;
     default:
         LOG_INF("Unhandled SAADC evt %d", p_event->type);
@@ -177,10 +185,11 @@ static void configure_saadc(void)
         return;
     }
 
-    err = nrfx_saadc_mode_trigger();
+    // calibration will nrfx_saadc_mode_trigger();
+    err = nrfx_saadc_offset_calibrate(saadc_event_handler);
     if (err != NRFX_SUCCESS)
     {
-        LOG_ERR("nrfx_saadc_mode_trigger error: %08x", err);
+        LOG_ERR("nrfx_saadc_offset_calibrate error: %08x", err);
         return;
     }
 }
