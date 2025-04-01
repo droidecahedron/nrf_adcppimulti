@@ -27,7 +27,12 @@ Zephyr-based application for nRF SoC (specifically nRF54L15) using nrfx & utiliz
 > The device power domains have their own GPIO ports with different capabilities. See [**HERE**](https://docs.nordicsemi.com/bundle/ps_nrf54L15/page/gpio.html#ariaid-title4)
 
 # Example output
-![image](https://github.com/user-attachments/assets/c312edab-90a1-4053-a185-c1b374bcffb0)
+![image](https://github.com/user-attachments/assets/85f90a0a-bcb4-42b6-8d97-8c421d901f70)
+
+
+## Testing with a waveform generator
+![image](https://github.com/user-attachments/assets/c580dcb5-7ef5-4b8f-8b4d-0a08ffa65f97)
+
 
 # Notes
 > Important: when sampling multiple channels, the data in the buffer will be interleaved - first sample from channel 0, then first sample from channel 1, and so on.
