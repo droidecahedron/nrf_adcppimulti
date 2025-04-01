@@ -37,6 +37,7 @@ Zephyr-based application for nRF SoC (specifically nRF54L15) using nrfx & utiliz
 # Notes
 > Important: when sampling multiple channels, the data in the buffer will be interleaved - first sample from channel 0, then first sample from channel 1, and so on.
 > There's no good way to implement different channels that you sample at different frequencies. You'll need to either sample all channels at the same frequency or reconfigure the SAADC module when you want to change the sampling configuration.
+> **Calibration:** The ADC has a temperature dependent offset. If the ADC is to operate over a large temperature range, we recommend running CALIBRATEOFFSET at regular intervals. The CALIBRATEDONE event will be fired when the calibration has been completed. Note that the DONE and RESULTDONE events will also be generated.
 
 # Relevant manpages
 [nRF54L15 DPPI](https://docs.nordicsemi.com/bundle/ps_nrf54L15/page/dppi.html)
