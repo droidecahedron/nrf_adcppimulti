@@ -17,6 +17,8 @@
 
 LOG_MODULE_REGISTER(nrf_apm, LOG_LEVEL_DBG);
 
+#define ADCRES 12
+
 #define SAADC_SAMPLE_INTERVAL_US 50 // one cannot trigger sampling more often than N_channels*(T_ACQ+T_CONV).
 #define SAADC_BUFFER_SIZE 8000
 #if NRF_SAADC_HAS_AIN_AS_PIN
@@ -108,7 +110,7 @@ static void saadc_event_handler(nrfx_saadc_evt_t const *p_event)
         for (int i = 0; i < p_event->data.done.size; i++)
         {
             current_value = ((int16_t *)(p_event->data.done.p_buffer))[i];
-            if (current_value % 2 == 1)
+            if ((current_value & 0x1) == 0x1)
                 LOG_INF("odd found RESULT[%d]:0x%x", i, current_value);
 
             current_diff -= current_value;
@@ -151,8 +153,8 @@ static void saadc_event_handler(nrfx_saadc_evt_t const *p_event)
         LOG_INF("SAMPLES: AVG0=0x%08x, AVG1=0x%08x, MIN=0x%x, MAX=0x%x", (int16_t)average0, (int16_t)average1, min,
                 max);
         // est, NRF_SAADC_RESOLUTION_14BIT, RESULT = [V(P) – V(N) ] * GAIN/REFERENCE * 2(RESOLUTION - m)
-        LOG_INF("V0: %d mV V1: %d mV", (int)(((900 * 4) * average0) / ((1 << 14))),
-                (int)(((900 * 4) * average1) / ((1 << 14))));
+        LOG_INF("V0: %d mV V1: %d mV", (int)(((900 * 4) * average0) / ((1 << ADCRES))),
+                (int)(((900 * 4) * average1) / ((1 << ADCRES))));
         LOG_INF("min_diff = %d", smallest_diff);
         break;
     default:
@@ -187,8 +189,11 @@ static void configure_saadc(void)
     }
     uint32_t channels_mask = nrfx_saadc_channels_configured_get();
     nrfx_saadc_adv_config_t saadc_adv_config = NRFX_SAADC_DEFAULT_ADV_CONFIG;
+    saadc_adv_config.oversampling = SAADC_OVERSAMPLE_OVERSAMPLE_Over16x;
+    saadc_adv_config.burst = SAADC_CH_CONFIG_BURST_Enabled;
+    //nrf_saadc_oversample_set(NRF_SAADC, NRF_SAADC_OVERSAMPLE_16X);
     err =
-        nrfx_saadc_advanced_mode_set(channels_mask, NRF_SAADC_RESOLUTION_14BIT, &saadc_adv_config, saadc_event_handler);
+        nrfx_saadc_advanced_mode_set(channels_mask, NRF_SAADC_RESOLUTION_12BIT, &saadc_adv_config, saadc_event_handler);
     if (err != NRFX_SUCCESS)
     {
         LOG_ERR("nrfx_saadc_advanced_mode_set error: %08x", err);
