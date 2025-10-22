@@ -4,11 +4,11 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
-#include <zephyr/kernel.h>
-#include <zephyr/logging/log.h>
+#include <helpers/nrfx_gppi.h>
 #include <nrfx_saadc.h>
 #include <nrfx_timer.h>
-#include <helpers/nrfx_gppi.h>
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
 #if defined(DPPI_PRESENT)
 #include <nrfx_dppi.h>
 #else
@@ -29,7 +29,7 @@ LOG_MODULE_REGISTER(nrf_apm, LOG_LEVEL_DBG);
 #define NRF_SAADC_INPUT_AIN5 NRF_PIN_PORT_TO_PIN_NUMBER(12U, 1)
 #define NRF_SAADC_INPUT_AIN6 NRF_PIN_PORT_TO_PIN_NUMBER(13U, 1)
 #define NRF_SAADC_INPUT_AIN7 NRF_PIN_PORT_TO_PIN_NUMBER(14U, 1)
-#define SAADC_INPUT_PIN1 NRF_SAADC_INPUT_AIN4                   // NRF_SAADC_INPUT_VDD for vdd direct
+#define SAADC_INPUT_PIN1 NRF_SAADC_INPUT_AIN4 // NRF_SAADC_INPUT_VDD for vdd direct
 #define SAADC_INPUT_PIN2 NRF_SAADC_INPUT_AIN5
 #else
 BUILD_ASSERT(0, "Unsupported device family");
@@ -37,10 +37,9 @@ BUILD_ASSERT(0, "Unsupported device family");
 #else
 #define SAADC_INPUT_PIN1 NRF_SAADC_INPUT_AIN0
 #endif
-static nrfx_saadc_channel_t saadc_channels[] =
-    {
-        NRFX_SAADC_DEFAULT_CHANNEL_SE(SAADC_INPUT_PIN1, 0),
-        NRFX_SAADC_DEFAULT_CHANNEL_SE(SAADC_INPUT_PIN2, 1),
+static nrfx_saadc_channel_t saadc_channels[] = {
+    NRFX_SAADC_DEFAULT_CHANNEL_SE(SAADC_INPUT_PIN1, 0),
+    NRFX_SAADC_DEFAULT_CHANNEL_SE(SAADC_INPUT_PIN2, 1),
 };
 #if defined(CONFIG_SOC_NRF54L15)
 #define TIMER_INSTANCE_NUMBER 22
@@ -65,7 +64,8 @@ static void configure_timer(void)
     }
 
     uint32_t timer_ticks = nrfx_timer_us_to_ticks(&timer_instance, SAADC_SAMPLE_INTERVAL_US);
-    nrfx_timer_extended_compare(&timer_instance, NRF_TIMER_CC_CHANNEL0, timer_ticks, NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, false);
+    nrfx_timer_extended_compare(&timer_instance, NRF_TIMER_CC_CHANNEL0, timer_ticks,
+                                NRF_TIMER_SHORT_COMPARE0_CLEAR_MASK, false);
 }
 
 static void saadc_event_handler(nrfx_saadc_evt_t const *p_event)
@@ -85,7 +85,8 @@ static void saadc_event_handler(nrfx_saadc_evt_t const *p_event)
 
     case NRFX_SAADC_EVT_BUF_REQ:
         err = nrfx_saadc_buffer_set(saadc_sample_buffer[(saadc_current_buffer++) % 2], SAADC_BUFFER_SIZE);
-        // err = nrfx_saadc_buffer_set(saadc_sample_buffer[((saadc_current_buffer == 0 )? saadc_current_buffer++ : 0)], SAADC_BUFFER_SIZE);
+        // err = nrfx_saadc_buffer_set(saadc_sample_buffer[((saadc_current_buffer == 0 )? saadc_current_buffer++ : 0)],
+        // SAADC_BUFFER_SIZE);
         if (err != NRFX_SUCCESS)
         {
             LOG_ERR("nrfx_saadc_buffer_set error: %08x", err);
@@ -100,13 +101,33 @@ static void saadc_event_handler(nrfx_saadc_evt_t const *p_event)
         int64_t average1 = 0;
         int16_t max = INT16_MIN;
         int16_t min = INT16_MAX;
+        int16_t smallest_diff = INT16_MAX;
+        int16_t current_diff = 0;
         int16_t current_value;
+        int16_t previous_value = 0;
         for (int i = 0; i < p_event->data.done.size; i++)
         {
             current_value = ((int16_t *)(p_event->data.done.p_buffer))[i];
+            if (current_value % 2 == 1)
+                LOG_INF("odd found RESULT[%d]:0x%x", i, current_value);
+
+            current_diff -= current_value;
+            if (current_diff < smallest_diff)
+                smallest_diff = current_diff;
             if (i % 2 == 0)
             {
                 average1 += current_value;
+                // Calculate difference starting from the second element. work with just one saadc ch
+                if (i > 0)
+                {
+                    current_diff = current_value - previous_value; // Calculate difference with the previous value
+
+                    // Check if the current difference is smaller than the smallest found so far
+                    if (current_diff < smallest_diff)
+                    {
+                        smallest_diff = current_diff;
+                    }
+                }
             }
             else
             {
@@ -120,13 +141,19 @@ static void saadc_event_handler(nrfx_saadc_evt_t const *p_event)
             {
                 min = current_value;
             }
+            // Update previous_value to be the current_value for the next iteration
+            previous_value = current_value;
         }
         average0 = average0 / ((p_event->data.done.size) / 2.0);
         average1 = average1 / ((p_event->data.done.size) / 2.0); // you can extend this to more chs and divide down
-        LOG_INF("SAADC buffer at 0x%x filled with %d samples", (uint32_t)p_event->data.done.p_buffer, p_event->data.done.size);
-        LOG_INF("SAMPLES: AVG0=0x%08x, AVG1=0x%08x, MIN=0x%x, MAX=0x%x", (int16_t)average0, (int16_t)average1, min, max);
+        LOG_INF("SAADC buffer at 0x%x filled with %d samples", (uint32_t)p_event->data.done.p_buffer,
+                p_event->data.done.size);
+        LOG_INF("SAMPLES: AVG0=0x%08x, AVG1=0x%08x, MIN=0x%x, MAX=0x%x", (int16_t)average0, (int16_t)average1, min,
+                max);
         // est, NRF_SAADC_RESOLUTION_14BIT, RESULT = [V(P) – V(N) ] * GAIN/REFERENCE * 2(RESOLUTION - m)
-        LOG_INF("V0: %d mV V1: %d mV", (int)(((900 * 4) * average0) / ((1 << 12))), (int)(((900 * 4) * average1) / ((1 << 12))));
+        LOG_INF("V0: %d mV V1: %d mV", (int)(((900 * 4) * average0) / ((1 << 14))),
+                (int)(((900 * 4) * average1) / ((1 << 14))));
+        LOG_INF("min_diff = %d", smallest_diff);
         break;
     default:
         LOG_INF("Unhandled SAADC evt %d", p_event->type);
@@ -137,9 +164,7 @@ static void saadc_event_handler(nrfx_saadc_evt_t const *p_event)
 static void configure_saadc(void)
 {
     nrfx_err_t err;
-    IRQ_CONNECT(DT_IRQN(DT_NODELABEL(adc)),
-                DT_IRQ(DT_NODELABEL(adc), priority),
-                nrfx_isr, nrfx_saadc_irq_handler, 0);
+    IRQ_CONNECT(DT_IRQN(DT_NODELABEL(adc)), DT_IRQ(DT_NODELABEL(adc), priority), nrfx_isr, nrfx_saadc_irq_handler, 0);
 
     err = nrfx_saadc_init(DT_IRQ(DT_NODELABEL(adc), priority));
     if (err != NRFX_SUCCESS)
@@ -162,10 +187,8 @@ static void configure_saadc(void)
     }
     uint32_t channels_mask = nrfx_saadc_channels_configured_get();
     nrfx_saadc_adv_config_t saadc_adv_config = NRFX_SAADC_DEFAULT_ADV_CONFIG;
-    err = nrfx_saadc_advanced_mode_set(channels_mask,
-                                       NRF_SAADC_RESOLUTION_12BIT,
-                                       &saadc_adv_config,
-                                       saadc_event_handler);
+    err =
+        nrfx_saadc_advanced_mode_set(channels_mask, NRF_SAADC_RESOLUTION_14BIT, &saadc_adv_config, saadc_event_handler);
     if (err != NRFX_SUCCESS)
     {
         LOG_ERR("nrfx_saadc_advanced_mode_set error: %08x", err);
