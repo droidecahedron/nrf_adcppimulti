@@ -2,6 +2,18 @@
 
 Zephyr-based application for nRF SoC (specifically nRF54L15) using nrfx & utilizing DPPI (distributed programmable peripheral interconnect) to connect the ADC peripheral to the TIMER peripheral and sample multiple ADC channels with minimal CPU involvement.
 
+# TEST SAR
+> [!IMPORTANT]
+> It may seem confusing that when you set resolution to 12 or 14 without oversampling (the RESOLUTION register only supports 8,10,12,14), you always get even results.
+>
+> The ADC is actually a 11-bit ADC. That means SAADC has 11 arithmetic bits in differential mode. You may mix up with this -- when it is single-ended mode, only half of the input range has been in use, thus, only 10 bits are valid (1/2 of the 2^11).
+>
+> “This behavior does not persist when using 8bit and 10bit for RESOLUTION. Only 12 and 14.” For example, when resolution is set as 12, differential mode is selected.
+>
+> Without oversampling, a fake/void LSB is added to the real 11 bits for REGRESULT output.
+>
+> From the SAADC PS: 10-bit resolution in single-ended mode, 11-bit resolution in differential mode, and 12/14-bit resolution with oversampling.
+
 # Supported Hardware
 | Compatible devices|
 |---|

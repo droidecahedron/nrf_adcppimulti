@@ -17,7 +17,7 @@
 
 LOG_MODULE_REGISTER(nrf_apm, LOG_LEVEL_DBG);
 
-#define ADCRES 12
+#define ADCRES 10
 
 #define SAADC_SAMPLE_INTERVAL_US 50 // one cannot trigger sampling more often than N_channels*(T_ACQ+T_CONV).
 #define SAADC_BUFFER_SIZE 8000
@@ -189,8 +189,8 @@ static void configure_saadc(void)
     }
     uint32_t channels_mask = nrfx_saadc_channels_configured_get();
     nrfx_saadc_adv_config_t saadc_adv_config = NRFX_SAADC_DEFAULT_ADV_CONFIG;
-    saadc_adv_config.oversampling = SAADC_OVERSAMPLE_OVERSAMPLE_Over16x;
-    saadc_adv_config.burst = SAADC_CH_CONFIG_BURST_Enabled;
+    // saadc_adv_config.oversampling = SAADC_OVERSAMPLE_OVERSAMPLE_Over16x;
+    // saadc_adv_config.burst = SAADC_CH_CONFIG_BURST_Enabled;
     //nrf_saadc_oversample_set(NRF_SAADC, NRF_SAADC_OVERSAMPLE_16X);
     err =
         nrfx_saadc_advanced_mode_set(channels_mask, NRF_SAADC_RESOLUTION_12BIT, &saadc_adv_config, saadc_event_handler);
